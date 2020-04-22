@@ -31,12 +31,15 @@ public class Consumer {
     }
 
     public static void sendMessage(Channel channel, String message) throws IOException {
+
         channel.basicPublish("", RESPONSE_QUEUE_NAME,
             MessageProperties.PERSISTENT_TEXT_PLAIN,
             message.getBytes(StandardCharsets.UTF_8));
+            
     }
 
     public static void recvMessage(Channel channel) throws IOException {
+
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
 
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
@@ -49,16 +52,21 @@ public class Consumer {
                 System.out.println(" [x] Done");
             }
         };
+
         boolean autoAck = true; // acknowledgment is covered below
         channel.basicConsume(REQUEST_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> { });
     }
 
     private static boolean checkBaseURL(String baseURL, String URLCheck) {
+
         if (URLCheck.length() < baseURL.length())
             return false;
+
         String baseURLCheck = URLCheck.substring(0, baseURL.length());
+
         if (baseURL.equals(baseURLCheck)) return true;
         else return false;
+
     }
 
     private static void doWork(Channel channel, String URL) throws IOException {

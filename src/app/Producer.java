@@ -32,10 +32,20 @@ public class Producer {
         FileWriter fstream = new FileWriter(loc, true);
         BufferedWriter out = new BufferedWriter(fstream);
 
-        out.newLine();
-        out.close();
-        
         Scanner sc = new Scanner(System.in);
+        
+        System.out.print(" [x] Sent ");
+        String message = sc.nextLine();
+        
+        if (message.endsWith("/")) {
+            message = message.substring(0, message.length() - 1);
+        }
+
+        out.write(message);
+        out.newLine();
+
+        out.close();
+        sc.close();
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
@@ -45,24 +55,21 @@ public class Producer {
         channel.queueDeclare(REQUEST_QUEUE_NAME, true, false, false, null);
         channel.queueDeclare(RESPONSE_QUEUE_NAME, true, false, false, null);
 
-        System.out.print(" [x] Sent ");
-        String message = sc.nextLine();
-
         sendMessage(channel, message);
-
         recvMessage(channel);
-
-        sc.close();
 
     }
 
     public static void sendMessage(Channel channel, String message) throws IOException {
+
         channel.basicPublish("", REQUEST_QUEUE_NAME,
             MessageProperties.PERSISTENT_TEXT_PLAIN,
             message.getBytes(StandardCharsets.UTF_8));
+
     }
 
     public static void recvMessage(Channel channel) throws IOException {
+
         File file = new File(loc);
 
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
@@ -90,32 +97,22 @@ public class Producer {
         };
 
         boolean autoAck = true; // acknowledgment is covered below
-        channel.basicConsume(RESPONSE_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> {
-        });
+        channel.basicConsume(RESPONSE_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> { });
+
     }
 
     public static boolean checkExist(String s, File fin) throws IOException {
 
-
         FileInputStream fis = new FileInputStream(fin);
-
-        // //Construct the BufferedReader object
-
         BufferedReader in = new BufferedReader(new InputStreamReader(fis));
-
 
         String aLine = null;
 
         while ((aLine = in.readLine()) != null) {
 
-            // //Process each line
-
             if (aLine.trim().contains(s)) {
 
-                // System.out.println("contains " + s);
-
                 in.close();
-
                 fis.close();
 
                 return true;
@@ -126,9 +123,7 @@ public class Producer {
         // do not forget to close the buffer reader
 
         in.close();
-
         fis.close();
-
 
         return false;
 
