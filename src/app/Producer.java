@@ -1,12 +1,9 @@
 package app;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
@@ -36,10 +33,6 @@ public class Producer {
         
         System.out.print(" [x] Sent ");
         String message = sc.nextLine();
-        
-        if (message.endsWith("/")) {
-            message = message.substring(0, message.length() - 1);
-        }
 
         out.write(message);
         out.newLine();
@@ -62,6 +55,10 @@ public class Producer {
 
     public static void sendMessage(Channel channel, String message) throws IOException {
 
+        if (message.endsWith("/")) {
+            message = message.substring(0, message.length() - 1);
+        }
+
         channel.basicPublish("", REQUEST_QUEUE_NAME,
             MessageProperties.PERSISTENT_TEXT_PLAIN,
             message.getBytes(StandardCharsets.UTF_8));
@@ -70,63 +67,21 @@ public class Producer {
 
     public static void recvMessage(Channel channel) throws IOException {
 
-        File file = new File(loc);
-
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
 
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+
             String message = new String(delivery.getBody(), "UTF-8");
+            
+            System.out.println("------ :  " + message);
 
-            if (!checkExist(message, file)) {
+            sendMessage(channel, message);
 
-                System.out.println("------ :  " + message);
-
-                // insert to file
-
-                FileWriter fstream = new FileWriter(loc, true);
-                BufferedWriter out = new BufferedWriter(fstream);
-
-                out.write(message);
-                out.newLine();
-
-                out.close();
-
-                sendMessage(channel, message);
-
-            }
         };
 
         boolean autoAck = true; // acknowledgment is covered below
         channel.basicConsume(RESPONSE_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> { });
 
     }
-
-    public static boolean checkExist(String s, File fin) throws IOException {
-
-        FileInputStream fis = new FileInputStream(fin);
-        BufferedReader in = new BufferedReader(new InputStreamReader(fis));
-
-        String aLine = null;
-
-        while ((aLine = in.readLine()) != null) {
-
-            if (aLine.trim().contains(s)) {
-
-                in.close();
-                fis.close();
-
-                return true;
-
-            }
-
-        }
-        // do not forget to close the buffer reader
-
-        in.close();
-        fis.close();
-
-        return false;
-
-	}
 
 }
