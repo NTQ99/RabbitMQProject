@@ -1,9 +1,6 @@
 package app;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
@@ -18,26 +15,19 @@ public class Producer {
     private static final String REQUEST_QUEUE_NAME = "request_queue";
     private static final String RESPONSE_QUEUE_NAME = "response_queue";
 
-    private static String loc;
+    private static String recordFile = "record.txt";
+    private static String postFileJSON = "post.json";
 
     public static void main(String[] argv) throws Exception {
-
-        File dir = new File(".");
-
-        loc = dir.getCanonicalPath() + File.separator + "record.txt";
-
-        FileWriter fstream = new FileWriter(loc, true);
-        BufferedWriter out = new BufferedWriter(fstream);
 
         Scanner sc = new Scanner(System.in);
         
         System.out.print(" [x] Sent ");
         String message = sc.nextLine();
 
-        out.write(message);
-        out.newLine();
+        FileHandle.write(recordFile, message, false);
+        FileHandle.write(postFileJSON, "[", false);
 
-        out.close();
         sc.close();
 
         ConnectionFactory factory = new ConnectionFactory();
@@ -55,9 +45,8 @@ public class Producer {
 
     public static void sendMessage(Channel channel, String message) throws IOException {
 
-        if (message.endsWith("/")) {
-            message = message.substring(0, message.length() - 1);
-        }
+        if (message == "") return;
+        message = validateUrl(message);
 
         channel.basicPublish("", REQUEST_QUEUE_NAME,
             MessageProperties.PERSISTENT_TEXT_PLAIN,
@@ -72,8 +61,6 @@ public class Producer {
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
 
             String message = new String(delivery.getBody(), "UTF-8");
-            
-            System.out.println("------ :  " + message);
 
             sendMessage(channel, message);
 
@@ -82,6 +69,21 @@ public class Producer {
         boolean autoAck = true; // acknowledgment is covered below
         channel.basicConsume(RESPONSE_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> { });
 
+    }
+
+    public static String validateUrl(String url) {
+
+        String resUrl = url;
+
+        if (url.endsWith("/")) {
+            resUrl = url.substring(0, url.length() - 1);
+        }
+
+        if (resUrl.contains("#")) {
+            resUrl = resUrl.substring(0, resUrl.indexOf("#"));
+        }
+
+        return resUrl;
     }
 
 }

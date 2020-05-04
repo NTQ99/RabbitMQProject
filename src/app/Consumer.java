@@ -5,13 +5,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 import com.rabbitmq.client.*;
@@ -21,15 +15,12 @@ public class Consumer {
 
     private static final String REQUEST_QUEUE_NAME = "request_queue";
     private static final String RESPONSE_QUEUE_NAME = "response_queue";
+    private static final String HANDLE_QUEUE_NAME = "handle_queue";
 
-    private static String loc;
+    private static String recordFile = "record.txt";
 
     public static void main(String[] argv) throws Exception {
 
-        File dir = new File(".");
-
-        loc = dir.getCanonicalPath() + File.separator + "record.txt";
-        
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
         Connection connection = factory.newConnection();
@@ -37,6 +28,7 @@ public class Consumer {
 
         channel.queueDeclare(REQUEST_QUEUE_NAME, true, false, false, null);
         channel.queueDeclare(RESPONSE_QUEUE_NAME, true, false, false, null);
+        channel.queueDeclare(HANDLE_QUEUE_NAME, true, false, false, null);
 
         recvMessage(channel);
 
@@ -50,6 +42,14 @@ public class Consumer {
             
     }
 
+    public static void sendHandleMessage(Channel channel, String message) throws IOException {
+
+        channel.basicPublish("", HANDLE_QUEUE_NAME,
+            MessageProperties.PERSISTENT_TEXT_PLAIN,
+            message.getBytes(StandardCharsets.UTF_8));
+            
+    }
+    
     public static void recvMessage(Channel channel) throws IOException {
 
         System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
@@ -69,9 +69,9 @@ public class Consumer {
         channel.basicConsume(REQUEST_QUEUE_NAME, autoAck, deliverCallback, consumerTag -> { });
     }
 
-    private static void doWork(Channel channel, String URL) throws IOException {
+    public static void doWork(Channel channel, String URL) throws IOException {
 
-        File file = new File(loc);
+        File file = new File(recordFile);
         Document doc = null;
 
         try {
@@ -84,66 +84,34 @@ public class Consumer {
             return;
         }
 
-        Elements questions = doc.select("a[href]");
+        if (checkTitle(doc.baseUri())) {
 
+            sendHandleMessage(channel, URL);
+            return;
+
+        }
+
+        Elements questions = doc.select("a[href]");
         for (Element link : questions) {
 
             String message = link.attr("abs:href");
+            if (!message.equals("") && checkBaseURL(URL, message) ) {
 
-            if (!message.equals("") && checkBaseURL(URL, message)) {
+                message = validateUrl(message);
 
-                if (!checkExist(message, file)) {
+                if (!FileHandle.checkExist(file, message)) {
     
                     // insert to file
-    
-                    FileWriter fstream = new FileWriter(loc, true);
-                    BufferedWriter out = new BufferedWriter(fstream);
-    
-                    out.write(message);
-                    out.newLine();
-    
-                    out.close();
-                    fstream.close();
+                    FileHandle.write(recordFile, message, true);
     
                     sendMessage(channel, message);
     
                 }
-
             }
-
         }
-
-    }
-
-    public static boolean checkExist(String s, File fin) throws IOException {
-
-        FileInputStream fis = new FileInputStream(fin);
-        BufferedReader in = new BufferedReader(new InputStreamReader(fis));
-
-        String aLine = null;
-
-        while ((aLine = in.readLine()) != null) {
-
-            if (aLine.trim().contains(s)) {
-
-                in.close();
-                fis.close();
-
-                return true;
-
-            }
-
-        }
-        // do not forget to close the buffer reader
-
-        in.close();
-        fis.close();
-
-        return false;
-
     }
     
-    private static boolean checkBaseURL(String URL, String URLCheck) {
+    public static boolean checkBaseURL(String URL, String URLCheck) {
 
         String baseURL = "";
         String baseURLCheck = "";
@@ -157,6 +125,34 @@ public class Consumer {
         
         return false;
 
+    }
+
+    public static boolean checkTitle(String title) {
+        
+        if (title.contains("preset")) return true;
+        if (title.contains("lightroom")) return true;
+        if (title.contains("font")) return true;
+        if (title.contains("typo")) return true;
+        if (title.contains("tao-dang")) return true;
+        if (title.contains("tu-the")) return true;
+
+        return false;
+
+    }
+
+    public static String validateUrl(String url) {
+
+        String resUrl = url;
+
+        if (url.endsWith("/")) {
+            resUrl = url.substring(0, url.length() - 1);
+        }
+
+        if (resUrl.contains("#")) {
+            resUrl = resUrl.substring(0, resUrl.indexOf("#"));
+        }
+
+        return resUrl;
     }
 
 }
