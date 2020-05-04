@@ -71,7 +71,6 @@ public class Consumer {
 
     public static void doWork(Channel channel, String URL) throws IOException {
 
-        File file = new File(recordFile);
         Document doc = null;
 
         try {
@@ -99,7 +98,7 @@ public class Consumer {
 
                 message = validateUrl(message);
 
-                if (!FileHandle.checkExist(file, message)) {
+                if (!FileHandle.checkExist(recordFile, message)) {
     
                     // insert to file
                     FileHandle.write(recordFile, message, true);
